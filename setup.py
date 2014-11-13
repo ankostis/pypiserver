@@ -53,4 +53,5 @@ setup(name="pypiserver",
         "Programming Language :: Python :: 3.3",
         "Topic :: Software Development :: Build Tools",
         "Topic :: System :: Software Distribution"],
+      setup_requires=["setuptools-git"],
       **extra)
