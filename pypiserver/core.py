@@ -11,10 +11,7 @@ import itertools
 import logging
 
 warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
-from pypiserver import bottle, __version__, app
-
-sys.modules["bottle"] = bottle
-from bottle import run, server_names
+from pypiserver import __version__, app
 
 mimetypes.add_type("application/octet-stream", ".egg")
 mimetypes.add_type("application/octet-stream", ".whl")
@@ -293,6 +290,28 @@ The following additional options can be specified with -U:
 Visit https://pypi.python.org/pypi/pypiserver for more information.
 """)
 
+
+def run_bottle_server(app, host, port, server, roots):
+    
+    ## Fixes #49: 
+    #    The gevent server adapter needs to patch some 
+    #    modules BEFORE importing bottle!
+    if server and server.startswith('gevent'):
+        import gevent.monkey;  # @UnresolvedImport
+        gevent.monkey.patch_all()
+        
+    from pypiserver import bottle
+    sys.modules["bottle"] = bottle
+    
+    if server not in bottle.server_names:
+        sys.exit("unknown server %r. choose one of %s" % (
+            server, ", ".join(bottle.server_names.keys())))
+
+    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
+        __version__, ", ".join(roots), host, port)
+    bottle.run(app=app, host=host, port=port, server=server)
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -365,9 +384,6 @@ def main(argv=None):
         elif k == "--fallback-url":
             fallback_url = v
         elif k == "--server":
-            if v not in server_names:
-                sys.exit("unknown server %r. choose one of %s" % (
-                    v, ", ".join(server_names.keys())))
             server = v
         elif k == "--welcome":
             welcome_file = v
@@ -435,9 +451,7 @@ def main(argv=None):
         cache_control=cache_control,
     )
     server = server or "auto"
-    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
-        __version__, ", ".join(roots), host, port)
-    run(app=a, host=host, port=port, server=server)
+    run_bottle_server(app=a, host=host, port=port, server=server, roots=roots)
 
 
 if __name__ == "__main__":
