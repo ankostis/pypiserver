@@ -11,12 +11,12 @@ import itertools
 import logging
 
 warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
-from pypiserver import __version__, app
+from pypiserver import __version__
 
 mimetypes.add_type("application/octet-stream", ".egg")
 mimetypes.add_type("application/octet-stream", ".whl")
 
-DEFAULT_SERVER = None
+DEFAULT_SERVER = 'auto'
 log = logging.getLogger('pypiserver.core')
 
 # --- the following two functions were copied from distribute's pkg_resources module
@@ -291,26 +291,6 @@ Visit https://pypi.python.org/pypi/pypiserver for more information.
 """)
 
 
-def run_bottle_server(app, host, port, server, roots):
-    
-    ## Fixes #49: 
-    #    The gevent server adapter needs to patch some 
-    #    modules BEFORE importing bottle!
-    if server and server.startswith('gevent'):
-        import gevent.monkey;  # @UnresolvedImport
-        gevent.monkey.patch_all()
-        
-    from pypiserver import bottle
-    sys.modules["bottle"] = bottle
-    
-    if server not in bottle.server_names:
-        sys.exit("unknown server %r. choose one of %s" % (
-            server, ", ".join(bottle.server_names.keys())))
-
-    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
-        __version__, ", ".join(roots), host, port)
-    bottle.run(app=app, host=host, port=port, server=server)
-
 
 def main(argv=None):
     if argv is None:
@@ -439,6 +419,23 @@ def main(argv=None):
         manage.update(packages, update_directory, update_dry_run, stable_only=update_stable_only)
         return
 
+    ## Fixes #49: 
+    #    The gevent server adapter needs to patch some 
+    #    modules BEFORE importing bottle!
+    if server and server.startswith('gevent'):
+        from gevent import monkey;  # @UnresolvedImport
+        monkey.patch_all()
+        
+    from pypiserver import app
+    from pypiserver import bottle
+    sys.modules["bottle"] = bottle
+    
+    if server not in bottle.server_names:
+        sys.exit("unknown server %r. choose one of %s" % (
+            server, ", ".join(bottle.server_names.keys())))
+
+    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
+        __version__, ", ".join(roots), host, port)
     a = app(
         root=roots,
         redirect_to_fallback=redirect_to_fallback,
@@ -450,8 +447,7 @@ def main(argv=None):
         welcome_file=welcome_file,
         cache_control=cache_control,
     )
-    server = server or "auto"
-    run_bottle_server(app=a, host=host, port=port, server=server, roots=roots)
+    bottle.run(app=app, host=host, port=port, server=server)
 
 
 if __name__ == "__main__":
