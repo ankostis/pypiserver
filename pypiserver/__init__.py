@@ -3,14 +3,14 @@ version = __version__ = "1.1.8-beta.0"
 
 
 def app(root=None,
-        redirect_to_fallback=True,
+        redirect_to_fallback=None,
         fallback_url=None,
         authenticated=None,
         password_file=None,
-        overwrite=False,
-        log_req_frmt="%(bottle.request)s", 
-        log_res_frmt="%(status)s", 
-        log_err_frmt="%(body)s: %(exception)s \n%(traceback)s",
+        overwrite=None,
+        log_req_frmt=None, 
+        log_res_frmt=None, 
+        log_err_frmt=None,
         welcome_file=None,
         cache_control=None,
        ):
