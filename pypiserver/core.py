@@ -11,15 +11,12 @@ import itertools
 import logging
 
 warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
-from pypiserver import bottle, __version__, app
-
-sys.modules["bottle"] = bottle
-from bottle import run, server_names
+from pypiserver import __version__
 
 mimetypes.add_type("application/octet-stream", ".egg")
 mimetypes.add_type("application/octet-stream", ".whl")
 
-DEFAULT_SERVER = None
+DEFAULT_SERVER = 'auto'
 log = logging.getLogger('pypiserver.core')
 
 # --- the following two functions were copied from distribute's pkg_resources module
@@ -239,7 +236,7 @@ pypi-server understands the following options:
     uses the ASCII contents of HTML_FILE as welcome message response.
 
   -v
-    enable verbose logging;  repeate for more verbosity.
+    enable verbose logging;  repeat for more verbosity.
 
   --log-file <FILE>
     write logging info into this FILE.
@@ -293,6 +290,8 @@ The following additional options can be specified with -U:
 Visit https://pypi.python.org/pypi/pypiserver for more information.
 """)
 
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -310,10 +309,10 @@ def main(argv=None):
     overwrite = False
     verbosity = 1
     log_file = None
-    log_frmt = None
-    log_req_frmt = None
-    log_res_frmt = None
-    log_err_frmt = None
+    log_frmt = "g%(asctime)s|%(levelname)s|%(thread)d|%(message)s"
+    log_req_frmt = "%(bottle.request)s"
+    log_res_frmt = "%(status)s"
+    log_err_frmt = "%(body)s: %(exception)s \n%(traceback)s"
     welcome_file = None
     cache_control = None
 
@@ -365,9 +364,6 @@ def main(argv=None):
         elif k == "--fallback-url":
             fallback_url = v
         elif k == "--server":
-            if v not in server_names:
-                sys.exit("unknown server %r. choose one of %s" % (
-                    v, ", ".join(server_names.keys())))
             server = v
         elif k == "--welcome":
             welcome_file = v
@@ -423,6 +419,23 @@ def main(argv=None):
         manage.update(packages, update_directory, update_dry_run, stable_only=update_stable_only)
         return
 
+    ## Fixes #49: 
+    #    The gevent server adapter needs to patch some 
+    #    modules BEFORE importing bottle!
+    if server and server.startswith('gevent'):
+        from gevent import monkey;  # @UnresolvedImport
+        monkey.patch_all()
+        
+    from pypiserver import app
+    from pypiserver import bottle
+    sys.modules["bottle"] = bottle
+    
+    if server not in bottle.server_names:
+        sys.exit("unknown server %r. choose one of %s" % (
+            server, ", ".join(bottle.server_names.keys())))
+
+    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
+        __version__, ", ".join(roots), host, port)
     a = app(
         root=roots,
         redirect_to_fallback=redirect_to_fallback,
@@ -434,10 +447,7 @@ def main(argv=None):
         welcome_file=welcome_file,
         cache_control=cache_control,
     )
-    server = server or "auto"
-    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
-        __version__, ", ".join(roots), host, port)
-    run(app=a, host=host, port=port, server=server)
+    bottle.run(app=app, host=host, port=port, server=server)
 
 
 if __name__ == "__main__":
