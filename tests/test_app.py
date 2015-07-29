@@ -1,12 +1,14 @@
 #! /usr/bin/env py.test
 
-from pypiserver import core  # do no remove. needed for bottle
-import pytest, bottle, webtest
+from pypiserver import core, bottle  # do no remove. needed for bottle
+import pytest
+import webtest
 
-## Enable logging to detect any problems with it
+# Enable logging to detect any problems with it
 ##
 import logging
 core.init_logging(level=logging.NOTSET)
+
 
 @pytest.fixture()
 def _app(app):
@@ -41,20 +43,20 @@ def testpriv(priv):
     return webtest.TestApp(priv)
 
 
-@pytest.fixture(params=["  ",  ## Mustcontain test below fails when string is empty.
-                        "Hey there!", 
+@pytest.fixture(params=["  ",  # Mustcontain test below fails when string is empty.
+                        "Hey there!",
                         "<html><body>Hey there!</body></html>",
                         ])
 def welcome_file_no_vars(request, root):
     wfile = root.join("testwelcome.html")
     wfile.write(request.param)
-    
+
     return wfile
 
 
-@pytest.fixture() 
+@pytest.fixture()
 def welcome_file_all_vars(request, root):
-    msg ="""
+    msg = """
     {{URL}}
     {{VERSION}}
     {{NUMPKGS}}
@@ -63,7 +65,7 @@ def welcome_file_all_vars(request, root):
     """
     wfile = root.join("testwelcome.html")
     wfile.write(msg)
-    
+
     return wfile
 
 
@@ -95,14 +97,15 @@ def test_root_welcome_msg_all_vars(root, welcome_file_all_vars):
     app = app(root=root.strpath, welcome_file=welcome_file_all_vars.strpath)
     testapp = webtest.TestApp(app)
     resp = testapp.get("/")
-    
+
     from pypiserver import __version__ as pver
     resp.mustcontain(pver)
 
 
 def test_root_welcome_msg_antiXSS(testapp):
     """https://github.com/pypiserver/pypiserver/issues/77"""
-    resp = testapp.get("/?<alert>Red</alert>", headers={"Host": "somehost.org"})
+    resp = testapp.get(
+        "/?<alert>Red</alert>", headers={"Host": "somehost.org"})
     resp.mustcontain("alert", "somehost.org", no="<alert>")
 
 
@@ -112,7 +115,7 @@ def test_root_remove_not_found_msg_antiXSS(testapp):
                         headers={"Host": "somehost.org"},
                         params={':action': 'remove_pkg',
                                 'name': '<alert>Red</alert>',
-                                'version':'1.1.1'})
+                                'version': '1.1.1'})
     resp.mustcontain("alert", "somehost.org", no="<alert>")
 
 
@@ -128,7 +131,8 @@ def test_favicon(testapp):
 def test_fallback(root, _app, testapp):
     assert _app.config.redirect_to_fallback
     resp = testapp.get("/simple/pypiserver/", status=302)
-    assert resp.headers["Location"] == "http://pypi.python.org/simple/pypiserver/"
+    assert resp.headers[
+        "Location"] == "http://pypi.python.org/simple/pypiserver/"
 
 
 def test_no_fallback(root, _app, testapp):
@@ -218,7 +222,7 @@ def test_nonroot_simple_index(root, testpriv):
     root.join("foobar-1.0.zip").write("")
 
     for path in ["/priv/simple/foobar",
-                "/priv/simple/foobar/"]:
+                 "/priv/simple/foobar/"]:
         resp = testpriv.get(path)
         links = resp.html("a")
         assert len(links) == 1
@@ -228,7 +232,7 @@ def test_nonroot_simple_index(root, testpriv):
 def test_nonroot_simple_packages(root, testpriv):
     root.join("foobar-1.0.zip").write("123")
     for path in ["/priv/packages",
-                "/priv/packages/"]:
+                 "/priv/packages/"]:
         resp = testpriv.get(path)
         links = resp.html("a")
         assert len(links) == 1
@@ -239,7 +243,8 @@ def test_root_no_relative_paths(testpriv):
     """https://github.com/pypiserver/pypiserver/issues/25"""
     resp = testpriv.get("/priv/")
     hrefs = [x["href"] for x in resp.html("a")]
-    assert hrefs == ['/priv/packages/', '/priv/simple/', 'http://pypi.python.org/pypi/pypiserver']
+    assert hrefs == ['/priv/packages/', '/priv/simple/',
+                     'http://pypi.python.org/pypi/pypiserver']
 
 
 def test_simple_index_list_no_duplicates(root, testapp):

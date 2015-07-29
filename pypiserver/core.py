@@ -10,7 +10,8 @@ import warnings
 import itertools
 import logging
 
-warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
+warnings.filterwarnings(
+    "ignore", "Python 2.5 support may be dropped in future versions of Bottle")
 from pypiserver import __version__
 
 mimetypes.add_type("application/octet-stream", ".egg")
@@ -21,7 +22,8 @@ log = logging.getLogger('pypiserver.core')
 
 # --- the following two functions were copied from distribute's pkg_resources module
 component_re = re.compile(r'(\d+ | [a-z]+ | \.| -)', re.VERBOSE)
-replace = {'pre': 'c', 'preview': 'c', '-': 'final-', 'rc': 'c', 'dev': '@'}.get
+replace = {'pre': 'c', 'preview': 'c',
+           '-': 'final-', 'rc': 'c', 'dev': '@'}.get
 
 
 def init_logging(level=None, format=None, filename=None):
@@ -30,6 +32,7 @@ def init_logging(level=None, format=None, filename=None):
     rlog.setLevel(level)
     if filename:
         rlog.addHandler(logging.FileHandler(filename))
+
 
 def _parse_version_parts(s):
     for part in component_re.split(s):
@@ -57,7 +60,7 @@ def parse_version(s):
 # -- end of distribute's code
 
 _archive_suffix_rx = re.compile(
-    r"(\.zip|\.tar\.gz|\.tgz|\.tar\.bz2|-py[23]\.\d-.*|\.win-amd64-py[23]\.\d\..*|\.win32-py[23]\.\d\..*|\.egg)$", 
+    r"(\.zip|\.tar\.gz|\.tgz|\.tar\.bz2|-py[23]\.\d-.*|\.win-amd64-py[23]\.\d\..*|\.win32-py[23]\.\d\..*|\.egg)$",
     re.IGNORECASE)
 
 wheel_file_re = re.compile(
@@ -110,6 +113,7 @@ def is_allowed_path(path_part):
 
 
 class PkgFile(object):
+
     def __init__(self, **kw):
         self.__dict__.update(kw)
 
@@ -179,7 +183,7 @@ def store(root, filename, data):
     dest_fh = open(dest_fn, "wb")
     dest_fh.write(data)
     dest_fh.close()
-    
+
     log.info("Stored package: %s", filename)
     return True
 
@@ -203,8 +207,8 @@ pypi-server understands the following options:
 
   -a, --authenticate (UPDATE|download|list), ...
     comma-separated list of (case-insensitive) actions to authenticate
-    (requires giving also the -P option). For example to password-protect 
-    package uploads & downloads while leaving listings public, give: 
+    (requires giving also the -P option). For example to password-protect
+    package uploads & downloads while leaving listings public, give:
       -a update,download.
     By default, only 'update' is password-protected.
 
@@ -243,12 +247,12 @@ pypi-server understands the following options:
 
   --log-frmt <FILE>
     the logging format-string.  (see `logging.LogRecord` class from standard python library)
-    [Default: %(asctime)s|%(levelname)s|%(thread)d|%(message)s] 
+    [Default: %(asctime)s|%(levelname)s|%(thread)d|%(message)s]
 
   --log-req-frmt FORMAT
     a format-string selecting Http-Request properties to log; set to  '%s' to see them all.
-    [Default: %(bottle.request)s] 
-    
+    [Default: %(bottle.request)s]
+
   --log-res-frmt FORMAT
     a format-string selecting Http-Response properties to log; set to  '%s' to see them all.
     [Default: %(status)s]
@@ -289,7 +293,6 @@ The following additional options can be specified with -U:
 
 Visit https://pypi.python.org/pypi/pypiserver for more information.
 """)
-
 
 
 def main(argv=None):
@@ -349,11 +352,13 @@ def main(argv=None):
         if k in ("-p", "--port"):
             port = int(v)
         elif k in ("-a", "--authenticate"):
-            authenticated = [a.lower() for a in re.split("[, ]+", v.strip(" ,"))]
+            authenticated = [a.lower()
+                             for a in re.split("[, ]+", v.strip(" ,"))]
             actions = ("list", "download", "update")
             for a in authenticated:
                 if a not in actions:
-                    errmsg = "Action '%s' for option `%s` not one of %s!" % (a, k, actions)
+                    errmsg = "Action '%s' for option `%s` not one of %s!" % (
+                        a, k, actions)
                     sys.exit(errmsg)
         elif k in ("-i", "--interface"):
             host = v
@@ -401,41 +406,44 @@ def main(argv=None):
             sys.exit(0)
 
     if password_file and not (password_file and authenticated):
-        sys.exit("Must give both password file (-P) and actions to authenticate (-a).")
+        sys.exit(
+            "Must give both password file (-P) and actions to authenticate (-a).")
 
     if len(roots) == 0:
         roots.append(os.path.expanduser("~/packages"))
 
     roots = [os.path.abspath(x) for x in roots]
 
-    verbose_levels = [logging.WARNING, logging.INFO, logging.DEBUG, logging.NOTSET]
+    verbose_levels = [
+        logging.WARNING, logging.INFO, logging.DEBUG, logging.NOTSET]
     log_level = list(zip(verbose_levels, range(verbosity)))[-1][0]
     init_logging(level=log_level, filename=log_file, format=log_frmt)
-    
+
     if command == "update":
         packages = frozenset(itertools.chain(*[listdir(r) for r in roots]))
         from pypiserver import manage
 
-        manage.update(packages, update_directory, update_dry_run, stable_only=update_stable_only)
+        manage.update(
+            packages, update_directory, update_dry_run, stable_only=update_stable_only)
         return
 
-    ## Fixes #49: 
-    #    The gevent server adapter needs to patch some 
+    # Fixes #49:
+    #    The gevent server adapter needs to patch some
     #    modules BEFORE importing bottle!
     if server and server.startswith('gevent'):
-        from gevent import monkey;  # @UnresolvedImport
+        from gevent import monkey  # @UnresolvedImport
         monkey.patch_all()
-        
+
     from pypiserver import app
     from pypiserver import bottle
     sys.modules["bottle"] = bottle
-    
+
     if server not in bottle.server_names:
         sys.exit("unknown server %r. choose one of %s" % (
             server, ", ".join(bottle.server_names.keys())))
 
-    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n", 
-        __version__, ", ".join(roots), host, port)
+    log.info("This is pypiserver %s serving %r on http://%s:%s\n\n",
+             __version__, ", ".join(roots), host, port)
     a = app(
         root=roots,
         redirect_to_fallback=redirect_to_fallback,

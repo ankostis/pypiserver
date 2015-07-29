@@ -1,7 +1,11 @@
 #! /usr/bin/env py.test
 
-import sys, os, pytest, logging
+import sys
+import os
+import pytest
+import logging
 from pypiserver import core
+from pypiserver import bottle
 
 
 class main_wrapper(object):
@@ -31,7 +35,7 @@ def main(request, monkeypatch):
         main.pkgdir = pkgdir
         return []
 
-    monkeypatch.setattr(core, "run", run)
+    monkeypatch.setattr(bottle, "run", run)
     monkeypatch.setattr(os, "listdir", listdir)
 
     return main
@@ -39,7 +43,8 @@ def main(request, monkeypatch):
 
 def test_default_pkgdir(main):
     main([])
-    assert os.path.normpath(main.pkgdir) == os.path.normpath(os.path.expanduser("~/packages"))
+    assert os.path.normpath(main.pkgdir) == os.path.normpath(
+        os.path.expanduser("~/packages"))
 
 
 def test_noargs(main):
@@ -85,28 +90,34 @@ def test_fallback_url_default(main):
     assert main.app.module.config.fallback_url == \
         "http://pypi.python.org/simple"
 
+
 @pytest.fixture
 def logfile(tmpdir):
     return tmpdir.mkdir("logs").join('test.log')
 
+
 def test_logging(main, logfile):
     main(["-v", "--log-file", logfile.strpath])
     assert logfile.check(), logfile
-    
+
+
 def test_logging_verbosity(main):
     main([])
-    assert logging.getLogger().level == logging.WARN 
+    assert logging.getLogger().level == logging.WARN
     main(["-v"])
-    assert logging.getLogger().level == logging.INFO 
+    assert logging.getLogger().level == logging.INFO
     main(["-v", "-v"])
-    assert logging.getLogger().level == logging.DEBUG 
+    assert logging.getLogger().level == logging.DEBUG
     main(["-v", "-v", "-v"])
     assert logging.getLogger().level == logging.NOTSET
 
+
 def test_welcome_file(main):
-    sample_msg_file = os.path.join(os.path.dirname(__file__), "sample_msg.html")
+    sample_msg_file = os.path.join(
+        os.path.dirname(__file__), "sample_msg.html")
     main(["--welcome", sample_msg_file])
     assert "Hello pypiserver tester!" in main.app.module.config.welcome_msg
+
 
 def test_welcome_file_default(main):
     main([])
