@@ -75,6 +75,9 @@ Currently only password-protected uploads are supported!
     
      http://serverfault.com/questions/152950/how-to-create-and-edit-htaccess-and-htpasswd-locally-on-my-computer-and-then-u
   
+     It is also possible to disable authentication even for uploads.
+     Read the help for ``-P`` and ``-a`` options to see how it is done.
+
 #. You  need to restart the server with the `-P` option only once 
    (but user/password pairs can later be added or updated on the fly)::
 
@@ -222,15 +225,14 @@ Running ``pypi-server -h`` will print a detailed usage message::
         -P foo/htpasswd.txt  -a update,download
       To drop all authentications, use:
         -P .  -a ''
-      For example to password-protect package uploads & downloads while leaving
-      listings public, give:
-        -P -a update,download
       By default, only 'update' is password-protected.
 
     -P, --passwords PASSWORD_FILE
       use apache htpasswd file PASSWORD_FILE to set usernames & passwords
       used for authentication of certain actions (see -a option).
-      Set it explicitly to '.' to allow empty list of actions to authenticate.
+      Set it explicitly to '.' to allow empty list of actions to authenticate;
+      then no `register` command is neccessary, but `~/.pypirc` still needs 
+      `username` and `password` fields, even if bogus. 
 
     --disable-fallback
       disable redirect to real PyPI index for packages not found in the
@@ -362,8 +364,8 @@ Using a different WSGI server
   interface::
 
     def app(root=None,
-	    redirect_to_fallback=True,
-	    fallback_url="http://pypi.python.org/simple")
+        redirect_to_fallback=True,
+        fallback_url="http://pypi.python.org/simple")
 
   and returns the WSGI application. `root` is the package directory,
   `redirect_to_fallback` specifies whether to redirect to `fallback_url` when
@@ -423,7 +425,7 @@ unstable packages on different paths::
   [app:unstable]
   use = egg:pypiserver#main
   root = ~/stable-packages
-	 ~/unstable-packages
+     ~/unstable-packages
 
   [server:main]
   use = egg:gunicorn#main
