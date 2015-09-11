@@ -97,9 +97,11 @@ def guess_pkgname_and_version(path):
     elif '.' not in path:
         pkgname, version = path.rsplit('-', 1)
     else:
-        parts = re.split(r'-(?=(?i)v?\d+[\.a-z])', path)
-        pkgname = '-'.join(parts[:-1])
-        version = parts[-1]
+        pkgname = re.split(r'-(?i)v?\d+[\.a-z]', path)[0]
+        ver_spec = path[len(pkgname) + 1:]
+        parts = re.split(r'[\.\-](?=(?i)cp\d|py\d|macosx|linux|sunos|'
+                         'solaris|irix|aix|cygwin|win)', ver_spec)
+        version = parts[0]
     return pkgname, version
 
 
