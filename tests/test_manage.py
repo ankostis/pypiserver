@@ -1,8 +1,21 @@
 #! /usr/bin/env py.test
 
-import pytest, py
+import pytest
+import py
 from pypiserver.core import parse_version, PkgFile, guess_pkgname_and_version
-from pypiserver.manage import is_stable_version, build_releases, filter_stable_releases, filter_latest_pkgs
+from pypiserver.manage import (is_stable_version, build_releases,
+                               find_updates, filter_stable_releases,
+                               filter_latest_pkgs, _extract_netloc)
+import sys
+import os
+import subprocess as sb
+import time
+from warnings import warn
+
+try:
+    from xmlrpc.client import ProtocolError
+except ImportError:
+    from xmlrpclib import ProtocolError# @UnresolvedImport
 
 
 def touch_files(root, files):
@@ -67,3 +80,53 @@ def test_filter_latest_pkgs_case_insensitive():
     pkgs = [pkgfile_from_path(x) for x in paths]
 
     assert frozenset(filter_latest_pkgs(pkgs)) == frozenset(pkgs[1:])
+
+
+def find_file_in_PATH(fname):
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        fpath = os.path.join(path, fname)
+        if os.path.isfile(fpath):
+            return fpath
+
+
+@pytest.mark.parametrize(
+    ('proxy_url', 'exp_netloc'),
+    [
+     ("localhost", "localhost"),
+     ("localhost:8899", "localhost:8899"),
+     ("http://localhost:8899/", "localhost:8899")
+    ],
+)
+def test_extract_netloc(proxy_url, exp_netloc):
+    _extract_netloc(proxy_url)
+
+
+@pytest.mark.skip(True, reason="SubProcesses lockup; do it manually.")
+def test_proxying():
+    pkg = PkgFile(pkgname='pypiserver', parsed_version=('1', '1', '6'))
+    proxy_script_path = find_file_in_PATH('proxy.py')
+    if not proxy_script_path:
+        raise ImportError("Run `pip instal proxy.py`!")
+    proxy_url = "http://localhost:8899/"
+    os.environ['HTTP_PROXY'] = proxy_url
+
+    proxy_script_cmd = 'python %s --port 8899 --log-level DEBUG' % proxy_script_path
+    proc = sb.Popen(proxy_script_cmd.split(),
+                    stderr=sb.PIPE, universal_newlines=True)
+    try:
+        time.sleep(1)
+        try:
+            find_updates([pkg])
+        except ProtocolError as ex:
+            # pypi failed to respond, ... another time!
+            print("Bad moment for PyPi: %s" % ex)
+            return
+    finally:
+        proc.kill()
+        _, stderr = proc.communicate()
+    print(stderr)
+    assert '127.0.0.1' in stderr
+
+if __name__ == '__main__':
+    test_proxying()

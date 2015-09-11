@@ -4,47 +4,58 @@ from subprocess import call
 
 from pypiserver import core
 
-if sys.version_info >= (3, 0):
-    from xmlrpc.client import Server
-
-    def make_pypi_client(url):
-        return Server(url)
-else:
-    from xmlrpclib import Transport  # @UnresolvedImport
+try:
+    from xmlrpc.client import Server, Transport, gzip
+    from urllib.request import getproxies
+    from urllib.parse import urlparse
+    from http import client as httplib
+except ImportError:
+    from xmlrpclib import Server, Transport, gzip  # @UnresolvedImport
+    from urllib import getproxies # @UnresolvedImport
     import httplib  # @UnresolvedImport
-    import urllib
+    from urlparse import urlparse # @UnresolvedImport
 
-    class ProxiedTransport(Transport):
 
-        def set_proxy(self, proxy):
-            self.proxy = proxy
+def _extract_netloc(url):
+    return urlparse(url).netloc
 
-        def make_connection(self, host):
-            self.realhost = host
-            if sys.hexversion < 0x02070000:
-                _http_connection = httplib.HTTP
-            else:
-                _http_connection = httplib.HTTPConnection
-            return _http_connection(self.proxy)
+class ProxiedTransport(Transport):
+    # From https://www.reddit.com/r/learnpython/comments/1l38mf/i_cant_get_xmlrpc_on_python_3_to_use_an_http_proxy/
 
-        def send_request(self, connection, handler, request_body):
-            connection.putrequest(
-                "POST", 'http://%s%s' % (self.realhost, handler))
+    def __init__(self, proxy, **kwds):
+        Transport.__init__(self, **kwds)
+        self.proxy = proxy
 
-        def send_host(self, connection, host):
-            connection.putheader('Host', self.realhost)
-
-    def make_pypi_client(url):
-        http_proxy_url = urllib.getproxies().get("http", "")
-
-        if http_proxy_url:
-            http_proxy_spec = urllib.splithost(
-                urllib.splittype(http_proxy_url)[1])[0]
-            transport = ProxiedTransport()
-            transport.set_proxy(http_proxy_spec)
+    def make_connection(self, host):
+        self.realhost = host
+        if sys.hexversion < 0x02070000:
+            _http_connection = httplib.HTTP
         else:
-            transport = None
-        return Server(url, transport=transport)
+            _http_connection = httplib.HTTPConnection
+        return _http_connection(self.proxy)
+
+    def send_request(self, host, handler, request_body, debug):
+        connection = self.make_connection(host)
+        headers = self._extra_headers[:]
+        new_handler = 'http://%s%s' % (self.realhost, handler)
+        if debug:
+            connection.set_debuglevel(1)
+        if self.accept_gzip_encoding and gzip:
+            connection.putrequest("POST", new_handler, skip_accept_encoding=True)
+            headers.append(("Accept-Encoding", "gzip"))
+        else:
+            connection.putrequest("POST", new_handler)
+        headers.append(("Content-Type", "text/xml"))
+        headers.append(("User-Agent", self.user_agent))
+        self.send_headers(connection, headers)
+        self.send_content(connection, request_body)
+        return connection
+
+def make_pypi_client(url):
+    http_proxy_url = getproxies().get("http", None)
+    return Server(url,
+                  transport=http_proxy_url and
+                  ProxiedTransport(_extract_netloc(http_proxy_url)))
 
 
 def is_stable_version(pversion):

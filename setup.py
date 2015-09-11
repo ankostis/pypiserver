@@ -12,12 +12,12 @@ except ImportError:
     from distutils.core import setup
     extra = dict(scripts=["pypi-server"])
 
+tests_require = ['proxy.py']  
 if sys.version_info >= (3, 0):
     exec("def do_exec(co, loc): exec(co, loc)\n")
-    tests_require = []  
 else:
     exec("def do_exec(co, loc): exec co in loc\n")
-    tests_require =  ['mock']
+    tests_require.append('mock')
 
 
 def get_version():
