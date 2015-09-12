@@ -5,16 +5,15 @@ from subprocess import call
 from pypiserver import core
 
 try:
-    from xmlrpc.client import Server, Transport, gzip
+    from xmlrpc.client import Server, Transport
     from urllib.request import getproxies
     from urllib.parse import urlparse
-    from http import client as httplib
+    from http.client import HTTPConnection
 except ImportError:
-    from xmlrpclib import Server, Transport, gzip  # @UnresolvedImport
+    from xmlrpclib import Server, Transport  # @UnresolvedImport
     from urllib import getproxies # @UnresolvedImport
-    import httplib  # @UnresolvedImport
     from urlparse import urlparse # @UnresolvedImport
-
+    from httplib import HTTPConnection  # @UnusedImport
 
 def _extract_netloc(url):
     return urlparse(url).netloc
@@ -22,34 +21,16 @@ def _extract_netloc(url):
 class ProxiedTransport(Transport):
     # From https://www.reddit.com/r/learnpython/comments/1l38mf/i_cant_get_xmlrpc_on_python_3_to_use_an_http_proxy/
 
-    def __init__(self, proxy, **kwds):
+    def __init__(self, proxy_netloc, **kwds):
         Transport.__init__(self, **kwds)
-        self.proxy = proxy
+        self.proxy_netloc = proxy_netloc
 
     def make_connection(self, host):
         self.realhost = host
-        if sys.hexversion < 0x02070000:
-            _http_connection = httplib.HTTP
-        else:
-            _http_connection = httplib.HTTPConnection
-        return _http_connection(self.proxy)
+        return HTTPConnection(self.proxy_netloc)
 
-    def send_request(self, host, handler, request_body, debug):
-        connection = self.make_connection(host)
-        headers = self._extra_headers[:]
-        new_handler = 'http://%s%s' % (self.realhost, handler)
-        if debug:
-            connection.set_debuglevel(1)
-        if self.accept_gzip_encoding and gzip:
-            connection.putrequest("POST", new_handler, skip_accept_encoding=True)
-            headers.append(("Accept-Encoding", "gzip"))
-        else:
-            connection.putrequest("POST", new_handler)
-        headers.append(("Content-Type", "text/xml"))
-        headers.append(("User-Agent", self.user_agent))
-        self.send_headers(connection, headers)
-        self.send_content(connection, request_body)
-        return connection
+    def send_request(self, host, connection, handler, request_body, debug=False):
+        connection.putrequest("POST", 'http://%s%s' % (self.realhost, handler))
 
 def make_pypi_client(url):
     http_proxy_url = getproxies().get("http", None)

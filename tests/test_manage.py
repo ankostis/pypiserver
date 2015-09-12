@@ -11,6 +11,7 @@ import os
 import subprocess as sb
 import time
 from warnings import warn
+import tempfile
 
 try:
     from xmlrpc.client import ProtocolError
@@ -102,31 +103,32 @@ def test_extract_netloc(proxy_url, exp_netloc):
     _extract_netloc(proxy_url)
 
 
-@pytest.mark.skip(True, reason="SubProcesses lockup; do it manually.")
-def test_proxying():
+@pytest.mark.skipif(True, reason="SubProcesses lockup; run it from main().")
+def test_proxying_updates():
     pkg = PkgFile(pkgname='pypiserver', parsed_version=('1', '1', '6'))
     proxy_script_path = find_file_in_PATH('proxy.py')
     if not proxy_script_path:
         raise ImportError("Run `pip instal proxy.py`!")
     proxy_url = "http://localhost:8899/"
     os.environ['HTTP_PROXY'] = proxy_url
-
     proxy_script_cmd = 'python %s --port 8899 --log-level DEBUG' % proxy_script_path
-    proc = sb.Popen(proxy_script_cmd.split(),
-                    stderr=sb.PIPE, universal_newlines=True)
-    try:
-        time.sleep(1)
+
+    with tempfile.TemporaryFile('r+t') as err_file:
+        proc = sb.Popen(proxy_script_cmd.split(),
+                        stderr=err_file, universal_newlines=True)
         try:
-            find_updates([pkg])
-        except ProtocolError as ex:
-            # pypi failed to respond, ... another time!
-            print("Bad moment for PyPi: %s" % ex)
-            return
-    finally:
-        proc.kill()
-        _, stderr = proc.communicate()
-    print(stderr)
-    assert '127.0.0.1' in stderr
+            time.sleep(1) # Give time to proxy-script to startup.
+            try:
+                find_updates([pkg])
+            except ProtocolError as ex:
+                # pypi failed to respond, ... another time!
+                print("Bad moment for PyPi: %s" % ex)
+                return
+        finally:
+            proc.kill()
+            stderr = err_file.read()
+            print('STDERR: %s' % stderr)
+            assert '127.0.0.1' in stderr
 
 if __name__ == '__main__':
-    test_proxying()
+    test_proxying_updates()
