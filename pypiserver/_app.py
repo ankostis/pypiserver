@@ -18,8 +18,9 @@ except ImportError:  # PY2
     from urlparse import urljoin
 
 from .bottle import static_file, redirect, request, response, HTTPError, Bottle, template
-from . import __version__
-from .core import listdir, find_packages, store, get_prefixes, exists
+from . import __version__, __file__ as my_path
+from .core import (listdir, find_packages, store, get_prefixes, exists,
+                   normalize_pkgname)
 
 log = logging.getLogger('pypiserver.http')
 packages = None
@@ -182,6 +183,7 @@ def root():
     return template(msg,
                     URL=request.url,
                     VERSION=__version__,
+                    SRVPATH=os.path.dirname(my_path),
                     NUMPKGS=numpkgs,
                     PACKAGES=urljoin(fp, "packages/"),
                     SIMPLE=urljoin(fp, "simple/")
@@ -288,8 +290,9 @@ def simple(prefix=""):
             return redirect("%s/%s/" % (config.fallback_url.rstrip("/"), prefix))
         return HTTPError(404)
 
-    links = [(os.path.basename(f), urljoin(fp, "../../packages/%s" %
-                                           f.replace("\\", "/"))) for f in files]
+    links = [(normalize_pkgname(os.path.basename(f)),
+              urljoin(fp, "../../packages/%s" % f.replace("\\", "/")))
+             for f in files]
     tmpl = """\
     <html>
         <head>
@@ -315,7 +318,7 @@ def list_packages():
 
     files = [x.relfn for x in sorted(find_packages(packages()),
                                      key=lambda x: (os.path.dirname(x.relfn), x.pkgname, x.parsed_version))]
-    links = [(f.replace("\\", "/"), urljoin(fp, f)) for f in files]
+    links = [(normalize_pkgname(f.replace("\\", "/")), urljoin(fp, f)) for f in files]
     tmpl = """\
     <html>
         <head>

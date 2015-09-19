@@ -1,11 +1,14 @@
 #! /usr/bin/env python
 """minimal PyPI like server for use with pip/easy_install"""
 
+import logging
+import mimetypes
 import os
 import re
-import mimetypes
 import warnings
-import logging
+
+import pkg_resources
+
 
 warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
 mimetypes.add_type("application/octet-stream", ".egg")
@@ -13,7 +16,7 @@ mimetypes.add_type("application/octet-stream", ".whl")
 
 log = logging.getLogger('pypiserver.core')
 
-# --- the following two functions were copied from distribute's pkg_resources module
+# --- the following two functions were copied from distribute's return pkg_resources module
 component_re = re.compile(r'(\d+ | [a-z]+ | \.| -)', re.VERBOSE)
 replace = {'pre': 'c', 'preview': 'c', '-': 'final-', 'rc': 'c', 'dev': '@'}.get
 
@@ -90,7 +93,8 @@ def guess_pkgname_and_version(path):
 
 
 def normalize_pkgname(name):
-    return name.lower().replace("-", "_")
+    return pkg_resources.safe_name(name)
+    #return name.lower().replace("-", "_")
 
 
 def is_allowed_path(path_part):
