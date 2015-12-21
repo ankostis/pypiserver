@@ -12,7 +12,7 @@ import re
 import sys
 
 import pkg_resources
-from . import Configuration
+from . import Configuration, ConfigError
 
 log = logging.getLogger(__file__)
 
@@ -24,8 +24,10 @@ def configure(**kwds):
     c = Configuration(**kwds)
     log.info("+++Pypiserver invoked with: %s", c)
 
-    if c.root is None:
-        c. root = os.path.expanduser("~/packages")
+    if not c.root:
+        c.root = os.path.expanduser("~/packages")
+        log.info('Assuming default package-root: %s' % c.root)
+
     roots = c.root if isinstance(c.root, (list, tuple)) else [c.root]
     roots = [os.path.abspath(r) for r in roots]
     for r in roots:
@@ -33,14 +35,30 @@ def configure(**kwds):
             os.listdir(r)
         except OSError:
             err = sys.exc_info()[1]
-            msg = "Error: while trying to list root(%s): %s"
-            sys.exit(msg % (r, err))
+            msg = "Cannot list root(%s) due to: %s"
+            raise ConfigError(msg % (r, err), c)
 
     packages = lambda: itertools.chain(*[listdir(r) for r in roots])
     packages.root = roots[0]
 
-    if not c.authenticated:
+    try:
+        c.port = int(c.port)
+    except Exception:
+        err = sys.exc_info()[1]
+        raise ConfigError("Invalid port(%r) due to: %s" % (c.port, err), c)
+
+    c.authenticated = [a.lower()
+                       for a in re.split("[, ]+", c.authenticated.strip(" ,"))
+                       if a]
+    if c.authenticated == ['.']:
         c.authenticated = []
+    else:
+        actions = ("list", "download", "update")
+        for a in c.authenticated:
+            if a not in actions:
+                msg = "Action '%s' for option `--authenticate` not one of %s!"
+                raise ConfigError(msg % (a, actions), c)
+            
     if not callable(c.auther):
         if c.password_file and c.password_file != '.':
             from passlib.apache import HtpasswdFile
@@ -48,6 +66,12 @@ def configure(**kwds):
         else:
             c.password_file = htPsswdFile = None
         c.auther = functools.partial(auth_by_htpasswd_file, htPsswdFile)
+
+    if (not c.authenticated and c.password_file != '.' or
+            c.authenticated and c.password_file == '.'):
+        msg = "When auth-ops-list is empty (-a=.), password-file (-P=%r) must also be empty ('.')!"
+        raise ConfigError(msg % c.password_file, c)
+
 
     # Read welcome-msg from external file,
     #     or failback to the embedded-msg (ie. in standalone mode).
@@ -74,7 +98,14 @@ def configure(**kwds):
             halgos = ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512']
 
         if c.hash_algo not in halgos:
-            sys.exit('Hash-algorithm %s not one of: %s' % (c.hash_algo, halgos))
+            msg = 'Hash-algorithm %s not one of: %s'
+            raise ConfigError(msg % (c.hash_algo, halgos), c)
+
+
+    from pypiserver import bottle
+    if c.server not in bottle.server_names:
+        msg = "unknown server %r. choose one of %s"
+        raise ConfigError(msg % (c.server, ", ".join(bottle.server_names)), c)
 
     log.info("+++Pypiserver started with: %s", c)
 

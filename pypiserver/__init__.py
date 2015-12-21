@@ -29,6 +29,13 @@ class Configuration(object):
         vars(self).update(d)
 
 
+class ConfigError(ValueError):
+
+    def __init__(self, msg, config):
+        Exception.__init__(self, msg)
+        self.config = config
+
+
 DEFAULT_SERVER = "auto"
 
 def default_config(
@@ -38,11 +45,12 @@ def default_config(
         server = DEFAULT_SERVER,
         redirect_to_fallback = True,
         fallback_url = None,
-        authenticated = ['update'],
+        authenticated = 'update',
         password_file = None,
         overwrite = False,
         hash_algo = 'md5',
         verbosity = 1,
+        log_level = None,
         log_file = None,
         log_frmt = "%(asctime)s|%(levelname)s|%(thread)d|%(message)s",
         log_req_frmt = "%(bottle.request)s",

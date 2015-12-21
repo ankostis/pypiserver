@@ -13,6 +13,7 @@ import re
 import logging
 import warnings
 import textwrap
+from pypiserver import ConfigError
 
 warnings.filterwarnings("ignore", "Python 2.5 support may be dropped in future versions of Bottle")
 log = logging.getLogger('pypiserver.main')
@@ -188,23 +189,9 @@ def main(argv=None):
 
     for k, v in opts:
         if k in ("-p", "--port"):
-            try:
-                c.port = int(v)
-            except Exception:
-                err = sys.exc_info()[1]
-                sys.exit("Invalid port(%r) due to: %s" % (v, err))
+            c.port = int(v)
         elif k in ("-a", "--authenticate"):
-            c.authenticated = [a.lower()
-                               for a in re.split("[, ]+", v.strip(" ,"))
-                               if a]
-            if c.authenticated == ['.']:
-                c.authenticated = []
-            else:
-                actions = ("list", "download", "update")
-                for a in c.authenticated:
-                    if a not in actions:
-                        errmsg = "Action '%s' for option `%s` not one of %s!"
-                        sys.exit(errmsg % (a, k, actions))
+            c.authenticated = v
         elif k in ("-i", "--interface"):
             c.host = v
         elif k in ("-r", "--root"):
@@ -252,25 +239,19 @@ def main(argv=None):
             print(usage())
             sys.exit(0)
 
-    if (not c.authenticated and c.password_file != '.' or
-            c.authenticated and c.password_file == '.'):
-        auth_err = "When auth-ops-list is empty (-a=.), password-file (-P=%r) must also be empty ('.')!"
-        sys.exit(auth_err % c.password_file)
 
-    if len(roots) == 0:
-        roots.append(os.path.expanduser("~/packages"))
+    verbose_levels = [logging.WARNING, 
+                      logging.INFO, 
+                      logging.DEBUG, 
+                      logging.NOTSET]
+    c.log_level = list(zip(verbose_levels, range(c.verbosity)))[-1][0]
+    init_logging(level=c.log_level, filename=c.log_file, frmt=c.log_frmt)
 
-    roots=[os.path.abspath(x) for x in roots]
-    c.root = roots
-
-    verbose_levels=[
-        logging.WARNING, logging.INFO, logging.DEBUG, logging.NOTSET]
-    log_level=list(zip(verbose_levels, range(c.verbosity)))[-1][0]
-    init_logging(level=log_level, filename=c.log_file, frmt=c.log_frmt)
+    c.root = [os.path.abspath(x) for x in roots]
 
     if command == "update":
         from pypiserver.manage import update_all_packages
-        update_all_packages(roots, update_directory,
+        update_all_packages(c.root, update_directory,
                 dry_run=update_dry_run, stable_only=update_stable_only)
         return
 
@@ -281,13 +262,14 @@ def main(argv=None):
         import gevent.monkey  # @UnresolvedImport
         gevent.monkey.patch_all()
 
-    from pypiserver import bottle
-    if c.server not in bottle.server_names:
-        sys.exit("unknown server %r. choose one of %s" % (
-            c.server, ", ".join(bottle.server_names.keys())))
+    try:
+        app = pypiserver.app(**vars(c))
+    except ConfigError:
+        err = sys.exc_info()[1]
+        sys.exit(err)
 
-    bottle.debug(True)
-    app = pypiserver.app(**vars(c))
+    from pypiserver import bottle
+    bottle.debug(c.log_level <= logging.DEBUG)
     bottle.run(app=app, host=c.host, port=c.port, server=c.server)
 
 
