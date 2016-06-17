@@ -3,13 +3,14 @@ Changelog
 
 1.2.0 (2016-XX-XX)
 ------------------
-"New Day", with less rigorous support for `python-2 < 2.7` and `python-3 < 3.3`.
+"New Day": less rigorous support for ``python-2 < 2.7`` and ``python-3 < 3.3``.
 
-- #38, #139, #140: Package normalizations and :pep:`503` updates
+- #38, #138, #139, #140: Package normalizations and :pep:`503` updates
   (thanks to @dpkp):
+
   - URLs are redirected unless they end in `'/'` (expect packages themselves).
   - Package names are normalized: lower-case with all runs of the characters,
-    and `[-_]` replaced with a single `'-'` character.
+    and replace `[-_.]` with a single `'-'` character.
   - The simple index only lists normalized package names.
   - Any request for a non-normalized package name is redirected to
     the normalized name.
@@ -18,7 +19,7 @@ Changelog
   previous `v1.1.10` (thanks to @virtuald, @Oneplus, @michaelkuty, @harcher81,
   @8u1a).
 - #113: FIX over-writing of packages even when without `--overwrite` flag
-  (thanks to @blade2005).
+  (thanks @blade2005).
 - #107, #108, #110: Test against *python-3.5*.
 - #112, #118, #119: Fixes for *paste*, *gunicorn* and other *WSGI* servers
   (thanks to @corywright, @virtuald, @montefra).

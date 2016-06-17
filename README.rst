@@ -10,8 +10,8 @@ pypiserver - minimal PyPI server for use with pip/easy_install
 |pypi-ver| |travis-status| |dependencies| |downloads-count| |python-ver| \
 |proj-license|
 
-:Version:     1.2.0.dev1
-:Date:        2016-06-17
+:Version:     1.2.0.dev2
+:Date:        2016-XX-XX
 :Source:      https://github.com/pypiserver/pypiserver
 :PyPI:        https://pypi.python.org/pypi/pypiserver
 :Travis:      https://travis-ci.org/pypiserver/pypiserver
@@ -222,6 +222,38 @@ https://github.com/dexterous/pypiserver-on-the-cloud contains
 instructions on how to run pypiserver on one of the supported cloud
 service providers.
 
+Running as *systemd* service
+----------------------------
+A template for *systemd* is given that must be adapted and written into
+``/usr/lib/systemd/system/``::
+
+    # /lib/systemd/system/pypi-server.service
+    [Unit]
+    Description=pypi-server
+    After=network.target
+
+    [Service]
+    Type=simple
+    # systemd requires absolute path here too.
+    PIDFile=/var/run/pypi-server.pid
+    User=www-data
+    Group=www-data
+
+    ExecStart=/usr/local/bin/pypi-server -p 8080 -vvv -u --disable-fallback --authenticate update,download --log-file /var/log/pypi-server.log --passwords /etc/nginx/.htpasswd /var/www/pypi
+    ExecStop=/bin/kill -TERM $MAINPID
+    ExecReload=/bin/kill -HUP $MAINPID
+    Restart=always
+
+    WorkingDirectory=/var/www/pypi
+
+    TimeoutStartSec=3
+    RestartSec=5
+
+    [Install]
+    WantedBy=multi-user.target
+
+More information about *systemd* can be found at
+https://www.digitalocean.com/community/tutorials/how-to-use-systemctl-to-manage-systemd-services-and-units
 
 
 Detailed Usage
@@ -560,13 +592,18 @@ among the most popular alternatives:
   <https://pypi.python.org/pypi/devpi>`_.
   (version: 2.1.4, access date: 8/3/2015)
 
-- `pip2pi <https://github.com/wolever/pip2pi>`_
+- `pypi-uploader <https://pypi.python.org/pypi/pypi-uploader>`_ -
+  Cmd-line tool to download and re-uploads distributions or your requirements
+  to *pypiserver*.
+
+- `pip2pi <https://github.com/wolever/pip2pi>`_ -
   a simple cmd-line tool that builds a PyPI-compatible local folder from pip requirements
   (version: 0.6.7, access date: 8/3/2015)
 
-- `flask-pypi-proxy <http://flask-pypi-proxy.readthedocs.org/>`_
+- `flask-pypi-proxy <http://flask-pypi-proxy.readthedocs.org/>`_ -
   A proxy for PyPI that also enables also uploading custom packages.
 
+-
 - Check this SO question: ` How to roll my own pypi <http://stackoverflow.com/questions/1235331/how-to-roll-my-own-pypi>`_
 
 
