@@ -3,6 +3,13 @@
 # Builtin imports
 import logging
 
+import pytest
+
+from pypiserver import __main__, bottle
+import tests.test_core as test_core
+import webtest
+
+
 try:
     from html.parser import HTMLParser
 except ImportError:
@@ -14,13 +21,9 @@ except ImportError:
     import xmlrpclib  # legacy Python
 
 # Third party imports
-import pytest
-import webtest
 
 
 # Local Imports
-from pypiserver import __main__, bottle
-import tests.test_core as test_core
 
 
 # Enable logging to detect any problems with it
@@ -308,14 +311,6 @@ def test_nonroot_simple_packages(root, testpriv):
     assert links[0]["href"].startswith("/priv/packages/foobar-1.0.zip#")
 
 
-def test_root_no_relative_paths(testpriv):
-    """https://github.com/pypiserver/pypiserver/issues/25"""
-    resp = testpriv.get("/priv/")
-    hrefs = [x["href"] for x in resp.html("a")]
-    assert hrefs == ['/priv/packages/', '/priv/simple/',
-                     'http://pypi.python.org/pypi/pypiserver']
-
-
 def test_simple_index_list_no_duplicates(root, testapp):
     root.join("foo-bar-1.0.tar.gz").write("")
     root.join("foo_bar-1.0-py2.7.egg").write("")
@@ -381,8 +376,8 @@ def test_upload_badAction(root, testapp):
     assert "Unsupported ':action' field: BAD" in hp.unescape(resp.text)
 
 
-@pytest.mark.parametrize(("package"), [f[0] 
-        for f in test_core.files 
+@pytest.mark.parametrize(("package"), [f[0]
+        for f in test_core.files
         if f[1] and '/' not in f[0]])
 def test_upload(package, root, testapp):
     resp = testapp.post("/", params={':action': 'file_upload'},
@@ -393,13 +388,13 @@ def test_upload(package, root, testapp):
     assert uploaded_pkgs[0].lower() == package.lower()
 
 
-@pytest.mark.parametrize(("package"), [f[0] 
-        for f in test_core.files 
+@pytest.mark.parametrize(("package"), [f[0]
+        for f in test_core.files
         if f[1] and '/' not in f[0]])
 def test_upload_with_signature(package, root, testapp):
     resp = testapp.post("/", params={':action': 'file_upload'},
             upload_files=[
-                    ('content', package, b''), 
+                    ('content', package, b''),
                     ('gpg_signature', '%s.asc' % package, b'')])
     assert resp.status_int == 200
     uploaded_pkgs = [f.basename.lower() for f in root.listdir()]
@@ -433,7 +428,7 @@ def test_remove_pkg_missingNaveVersion(name, version, root, testapp):
     params = {':action': 'remove_pkg', 'name': name, 'version': version}
     params = dict((k, v) for k,v in params.items() if v is not None)
     resp = testapp.post("/", expect_errors=1, params=params)
-    
+
     assert resp.status == '400 Bad Request'
     assert msg %(name, version) in hp.unescape(resp.text)
 

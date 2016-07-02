@@ -3,12 +3,13 @@ import logging
 import mimetypes
 import os
 import re
-import zipfile
 import xml.dom.minidom
+import zipfile
 
 from . import __version__
 from . import core
 from .bottle import static_file, redirect, request, response, HTTPError, Bottle, template
+
 
 try:
     import xmlrpc.client as xmlrpclib # py3
@@ -93,8 +94,8 @@ def root():
                     URL=request.url,
                     VERSION=__version__,
                     NUMPKGS=numpkgs,
-                    PACKAGES=urljoin(fp, "packages/"),
-                    SIMPLE=urljoin(fp, "simple/")
+                    PACKAGES="packages/",
+                    SIMPLE="simple/"
                     )
 
 _bottle_upload_filename_re = re.compile(r'^[a-z0-9_.!+-]+$', re.I)
